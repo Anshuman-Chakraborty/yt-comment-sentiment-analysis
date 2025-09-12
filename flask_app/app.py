@@ -53,7 +53,7 @@ def preprocess_comment(comment):
 # Load the model and vectorizer from the model registry and local storage
 def load_model_and_vectorizer(model_name, model_version, vectorizer_path):
     # Set MLflow tracking URI to your server
-    mlflow.set_tracking_uri("http://ec2-54-196-109-131.compute-1.amazonaws.com:5000/")  # Replace with your MLflow tracking URI
+    mlflow.set_tracking_uri("http://ec2-13-200-250-45.ap-south-1.compute.amazonaws.com:5000/")  # Replace with your MLflow tracking URI
     client = MlflowClient()
     model_uri = f"models:/{model_name}/{model_version}"
     model = mlflow.pyfunc.load_model(model_uri)
@@ -61,7 +61,7 @@ def load_model_and_vectorizer(model_name, model_version, vectorizer_path):
     return model, vectorizer
 
 # Initialize the model and vectorizer
-model, vectorizer = load_model_and_vectorizer("my_model", "1", "./tfidf_vectorizer.pkl")  # Update paths and versions as needed
+model, vectorizer = load_model_and_vectorizer("yt_chrome_plugin_model", "2", "./tfidf_vectorizer.pkl")  # Update paths and versions as needed
 
 @app.route('/')
 def home():
@@ -97,6 +97,8 @@ def predict_with_timestamps():
     response = [{"comment": comment, "sentiment": sentiment, "timestamp": timestamp} for comment, sentiment, timestamp in zip(comments, predictions, timestamps)]
     return jsonify(response)
 
+import pandas as pd
+
 @app.route('/predict', methods=['POST'])
 def predict():
     data = request.json
@@ -109,19 +111,29 @@ def predict():
         # Preprocess each comment before vectorizing
         preprocessed_comments = [preprocess_comment(comment) for comment in comments]
         
-        # Transform comments using the vectorizer
+        # Transform comments using the vectorizer (sparse matrix)
         transformed_comments = vectorizer.transform(preprocessed_comments)
-        
-        # Make predictions
-        predictions = model.predict(transformed_comments).tolist()  # Convert to list
-        
+
+        # ✅ Convert sparse matrix -> dense DataFrame with feature names
+        transformed_df = pd.DataFrame(
+            transformed_comments.toarray(),
+            columns=vectorizer.get_feature_names_out()
+        )
+
+        # Predict using the model
+        predictions = model.predict(transformed_df).tolist()
+
         # Convert predictions to strings for consistency
         predictions = [str(pred) for pred in predictions]
+
     except Exception as e:
         return jsonify({"error": f"Prediction failed: {str(e)}"}), 500
     
     # Return the response with original comments and predicted sentiments
-    response = [{"comment": comment, "sentiment": sentiment} for comment, sentiment in zip(comments, predictions)]
+    response = [
+        {"comment": comment, "sentiment": sentiment}
+        for comment, sentiment in zip(comments, predictions)
+    ]
     return jsonify(response)
 
 @app.route('/generate_chart', methods=['POST'])
