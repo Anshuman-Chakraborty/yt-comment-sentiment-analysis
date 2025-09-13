@@ -53,7 +53,7 @@ def register_model(model_name: str, model_info: dict):
         client.set_registered_model_alias(
             name="yt_chrome_plugin_model",
             alias="staging",
-            version=latest_version
+            version=model_version.latest_version
         )
 
         
