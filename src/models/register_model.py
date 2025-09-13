@@ -50,10 +50,11 @@ def register_model(model_name: str, model_info: dict):
         
         # Transition the model to "Staging" stage
         client = mlflow.tracking.MlflowClient()
-        client.set_registered_model_alias(
-            name="yt_chrome_plugin_model",
-            alias="staging",
-            version=model_version.version
+        client.transition_model_version_stage(
+            name=model_name,
+            version=model_version.version,
+            stage="Staging",
+            archive_existing_versions=True  # move older staging ones to Archived
         )
 
         
